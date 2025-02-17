@@ -1,0 +1,18 @@
+# Ignore training data and processed images
+training_data/
+hair_removed_images/
+
+# Ignore any hidden system files
+.DS_Store
+Thumbs.db
+
+# Ignore Python cache and temporary files (if applicable)
+__pycache__/
+*.pyc
+
+# Ignore logs and temporary files
+*.log
+logs/
+
+# Ignore virtual environments (if using Python)
+venv/
