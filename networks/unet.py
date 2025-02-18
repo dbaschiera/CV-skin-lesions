@@ -3,68 +3,87 @@ from tensorflow.keras import layers, models
 
 class UNet(tf.keras.Model):
     def __init__(self, input_size=(256, 256, 3), num_classes=1):
-        super(UNet, self).__init__()
+        super().__init__()
         
         self.input_size = input_size
         self.num_classes = num_classes
         
         # Contracting Path (Encoder)
-        self.enc_conv1 = self.conv_block(64)
-        self.enc_conv2 = self.conv_block(128)
-        self.enc_conv3 = self.conv_block(256)
-        self.enc_conv4 = self.conv_block(512)
+        self.conv1 = self.conv_block(64)
+        self.pool1 = layers.MaxPooling2D((2, 2), strides=(2, 2))
+
+        self.conv2 = self.conv_block(128)
+        self.pool2 = layers.MaxPooling2D((2, 2), strides=(2, 2))
+
+        self.conv3 = self.conv_block(256)
+        self.pool3 = layers.MaxPooling2D((2, 2), strides=(2, 2))
+
+        self.conv4 = self.conv_block(512)
+        self.pool4 = layers.MaxPooling2D((2, 2), strides=(2, 2))
         
         # Bottleneck
         self.bottleneck = self.conv_block(1024)
         
         # Expansive Path (Decoder)
-        self.upconv4 = self.upconv_block(512)
-        self.upconv3 = self.upconv_block(256)
-        self.upconv2 = self.upconv_block(128)
-        self.upconv1 = self.upconv_block(64)
+        self.upsample4 = layers.Conv2DTranspose(512, (2, 2), strides=(2, 2), padding='same')
+        self.upconv4 = self.conv_block(512)
+
+        self.upsample3 = layers.Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')
+        self.upconv3 = self.conv_block(256)
+
+        self.upsample2 = layers.Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')
+        self.upconv2 = self.conv_block(128)
+
+        self.upsample1 = layers.Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')
+        self.upconv1 = self.conv_block(64)
         
         # Output layer with a 1x1 convolution (sigmoid for binary classification)
         self.output_layer = layers.Conv2D(self.num_classes, (1, 1), activation='sigmoid', padding='same')
 
     def conv_block(self, filters, kernel_size=(3, 3), padding='same', strides=(1, 1)):
-        block = models.Sequential([
+        return models.Sequential([
             layers.Conv2D(filters, kernel_size, strides=strides, padding=padding),
-            layers.ReLU(),
-            layers.Conv2D(filters, kernel_size, strides=strides, padding=padding),
-            layers.ReLU(),
-            layers.MaxPooling2D(pool_size=(2, 2))  # Max-pooling with size (2, 2)
-        ])
-        return block
-
-    def upconv_block(self, filters, kernel_size=(3, 3), padding='same', strides=(1, 1)):
-        block = models.Sequential([
-            layers.Conv2DTranspose(filters, kernel_size, strides=(2, 2), padding=padding),  # Upsample with 2x2 strides
             layers.ReLU(),
             layers.Conv2D(filters, kernel_size, strides=strides, padding=padding),
             layers.ReLU()
         ])
-        return block
     
     def call(self, inputs):
+
         # Contracting path (encoder)
-        enc1 = self.enc_conv1(inputs)
-        enc2 = self.enc_conv2(enc1)
-        enc3 = self.enc_conv3(enc2)
-        enc4 = self.enc_conv4(enc3)
+        enc1 = self.conv1(inputs)  # 256x256x3 -> 256x256x64
+        pool1 = self.pool1(enc1)   # 256x256x64 -> 128x128x64
+
+        enc2 = self.conv2(pool1)   # 128x128x64 -> 128x128x128
+        pool2 = self.pool2(enc2)   # 128x128x128 -> 64x64x128
+
+        enc3 = self.conv3(pool2)   # 64x64x128 -> 64x64x256
+        pool3 = self.pool3(enc3)   # 64x64x256 -> 32x32x256
+
+        enc4 = self.conv4(pool3)   # 32x32x256 -> 32x32x512
+        pool4 = self.pool4(enc4)   # 32x32x512 -> 16x16x512
         
         # Bottleneck
-        bottleneck = self.bottleneck(enc4)
+        bottleneck = self.bottleneck(pool4)  # 16x16x512 -> 16x16x1024
         
         # Expansive path (decoder)
-        up4 = self.upconv4(bottleneck)
-        up3 = self.upconv3(up4)
-        up2 = self.upconv2(up3)
-        up1 = self.upconv1(up2)
+        up4 = self.upsample4(bottleneck)   # 16x16x1024 -> 32x32x512
+        up4 = layers.Concatenate(axis=-1)([up4, enc4])  # 32x32x512 + 32x32x512 -> 32x32x1024
+        up4 = self.upconv4(up4) # 32x32x1024 -> 32x32x512
+
+        up3 = self.upsample3(up4) # 32x32x512 -> 64x64x256
+        up3 = layers.Concatenate(axis=-1)([up3, enc3]) # 64x64x256 + 64x64x256 -> 64x64x512
+        up3 = self.upconv3(up3) # 64x64x512 -> 64x64x256
+
+        up2 = self.upsample2(up3) # 64x64x256 -> 128x128x128
+        up2 = layers.Concatenate(axis=-1)([up2, enc2]) # 128x128x128 + 128x128x128 -> 128x128x256
+        up2 = self.upconv2(up2) # 128x128x256 -> 128x128x128
+
+        up1 = self.upsample1(up2)          # 128x128x128 -> 256x256x64
+        up1 = layers.Concatenate(axis=-1)([up1, enc1])  # 256x256x64 + 256x256x64 -> 256x256x128
+        up1 = self.upconv1(up1)            # 256x256x128 -> 256x256x64
         
-        # Output layer (1x1 convolution to match original image size)
-        output = self.output_layer(up1)
-        
-        # Resize to ensure it matches the input size (256x256)
-        output = tf.image.resize(output, size=(256, 256))  # Resize output to 256x256 if needed
+        # Output layer
+        output = self.output_layer(up1)  # 256x256x64 -> 256x256x1
         
         return output
