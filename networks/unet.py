@@ -81,9 +81,9 @@ class UNet(tf.keras.Model):
         up2 = layers.Concatenate(axis=-1)([up2, enc2]) # 128x128x128 + 128x128x128 -> 128x128x256
         up2 = self.upconv2(up2) # 128x128x256 -> 128x128x128
 
-        up1 = self.upsample1(up2)          # 128x128x128 -> 256x256x64
-        up1 = layers.Concatenate(axis=-1)([up1, enc1])  # 256x256x64 + 256x256x64 -> 256x256x128
-        up1 = self.upconv1(up1)            # 256x256x128 -> 256x256x64
+        up1 = self.upsample1(up2) # 128x128x128 -> 256x256x64
+        up1 = layers.Concatenate(axis=-1)([up1, enc1]) # 256x256x64 + 256x256x64 -> 256x256x128
+        up1 = self.upconv1(up1) # 256x256x128 -> 256x256x64
         
         # Output layer
         output = self.output_layer(up1)  # 256x256x64 -> 256x256x1

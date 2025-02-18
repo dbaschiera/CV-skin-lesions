@@ -1,34 +1,52 @@
-import os
-import tensorflow as tf
+import cv2
 
-def load_image(image_path):
-    """Load an image, decode it, and resize to 256x256"""
-    img = tf.io.read_file(image_path)               # Read image
-    img = tf.image.decode_jpeg(img, channels=3)       # Decode as JPG (assuming JPG images)
-    img = tf.image.resize(img, (256, 256))           # Resize to target size
-    img = img / 255.0                               # Normalize to range [0, 1]
-    return img
+def remove_hair(image):
+    """
+    Applies hair removal using Black Top-Hat filtering and inpainting.
+    """
+    # Convert image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-def load_mask(mask_path):
-    """Load a mask, decode it, and resize to 256x256"""
-    mask = tf.io.read_file(mask_path)               # Read mask image
-    mask = tf.image.decode_png(mask, channels=1)     # Decode as PNG (assuming masks are single-channel)
-    mask = tf.image.resize(mask, (256, 256))         # Resize to target size
-    mask = mask / 255.0                             # Normalize to range [0, 1]
-    return mask
+    # Define structuring element (kernel) for morphological operations
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (17, 17))  # Adjust for hair thickness
+
+    # Apply morphological closing (X · Y)
+    closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+
+    # Compute Black Top-Hat transformation: B_TH = (X · Y) - X
+    black_tophat = closed - gray
+
+    # Threshold to create a binary mask of hair pixels
+    _, mask = cv2.threshold(black_tophat, 10, 255, cv2.THRESH_BINARY)
+
+    # Inpaint the detected hair pixels using neighboring pixels
+    inpainted = cv2.inpaint(image, mask, inpaintRadius=10, flags=cv2.INPAINT_TELEA)
+
+    return inpainted
 
 
-# Set the directory paths
-image_folder = 'normalized_images'
-mask_folder = 'normalized_masks'
+def resize_image(image, target_size=256, interpolation=cv2.INTER_LINEAR):
+    """
+    Resizes the image directly to target_size x target_size without keeping aspect ratio.
+    No padding or cropping is applied.
+    """
+    return cv2.resize(image, (target_size, target_size), interpolation=interpolation)
 
-# Get image and mask file paths
-image_paths = [os.path.join(image_folder, fname) for fname in os.listdir(image_folder)]
-mask_paths = [os.path.join(mask_folder, fname) for fname in os.listdir(mask_folder)]
 
-'''
-for image_path, mask_path in zip(image_paths, mask_paths):
-    image = load_image(image_path)
-    mask = load_mask(mask_path)
-    print(f"Loaded image: {image.shape}, mask: {mask.shape}")
-'''
+# Target image size
+target_size = 256
+
+# Target image
+image_path = 'my_skin_lesions/left_arm.jpg'
+
+# Read image
+image = cv2.imread(image_path)
+
+# Step 1: Apply hair removal on the original image
+hair_removed_image = remove_hair(image)
+
+# Step 2: Resize the hair-free image and mask to 256×256
+resized_hair_removed = resize_image(hair_removed_image, target_size, interpolation=cv2.INTER_LINEAR)
+
+cv2.imwrite('my_normalized_skin_lesions/left_arm.jpg', resized_hair_removed)  # 256x256 resized
+
