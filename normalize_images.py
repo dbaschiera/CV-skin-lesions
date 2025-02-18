@@ -4,10 +4,10 @@ import numpy as np
 from glob import glob
 
 # Define directories
-input_dir = "training_data"  # Folder containing original images and segmentation masks
-output_hair_removed_dir = "hair_removed_images"  # Folder for hair-removed images (original resolution)
-output_img_dir = "normalized_images"  # Folder for resized 256x256 images (hair-free)
-output_mask_dir = "normalized_masks"  # Folder for resized segmentation masks (256x256)
+input_dir = "test_data"  # Folder containing original images and segmentation masks
+output_hair_removed_dir = "test_hair_removed_images"  # Folder for hair-removed images (original resolution)
+output_img_dir = "test_normalized_images"  # Folder for resized 256x256 images (hair-free)
+output_mask_dir = "test_normalized_masks"  # Folder for resized segmentation masks (256x256)
 
 # Create output directories
 os.makedirs(output_hair_removed_dir, exist_ok=True)
