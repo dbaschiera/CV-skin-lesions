@@ -43,8 +43,10 @@ class UNet(tf.keras.Model):
     def conv_block(self, filters, kernel_size=(3, 3), padding='same', strides=(1, 1)):
         return models.Sequential([
             layers.Conv2D(filters, kernel_size, strides=strides, padding=padding),
+            layers.BatchNormalization(),
             layers.ReLU(),
             layers.Conv2D(filters, kernel_size, strides=strides, padding=padding),
+            layers.BatchNormalization(),
             layers.ReLU()
         ])
     
