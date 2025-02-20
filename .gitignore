@@ -1,6 +1,12 @@
 # Ignore training data and processed images
 training_data/
 hair_removed_images/
+reduced_images/
+reduced_masks/
+sampled_augmented_images/
+sampled_augmented_masks/
+single_image/
+single_mask/
 
 # Ignore any hidden system files
 .DS_Store
